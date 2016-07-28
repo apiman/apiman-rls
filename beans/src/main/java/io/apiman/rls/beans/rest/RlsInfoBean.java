@@ -24,6 +24,7 @@ public class RlsInfoBean {
     private String name;
     private String version;
     private String description;
+    private RlsInfoLinksBean links = new RlsInfoLinksBean();
     
     /**
      * Constructor.
@@ -75,6 +76,20 @@ public class RlsInfoBean {
      */
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    /**
+     * @return the links
+     */
+    public RlsInfoLinksBean getLinks() {
+        return links;
+    }
+
+    /**
+     * @param links the links to set
+     */
+    public void setLinks(RlsInfoLinksBean links) {
+        this.links = links;
     }
 
 }

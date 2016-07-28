@@ -19,9 +19,12 @@ package io.apiman.rls.vertx;
 import io.apiman.rls.beans.rest.LimitBean;
 import io.apiman.rls.beans.rest.LimitExceededErrorBean;
 import io.apiman.rls.beans.rest.LimitIncrementBean;
+import io.apiman.rls.beans.rest.LimitLinksBean;
 import io.apiman.rls.beans.rest.LimitListBean;
+import io.apiman.rls.beans.rest.LimitListLinksBean;
 import io.apiman.rls.beans.rest.NewLimitBean;
 import io.apiman.rls.beans.rest.RlsInfoBean;
+import io.apiman.rls.beans.rest.RlsInfoLinksBean;
 import io.apiman.rls.limits.Limits;
 import io.apiman.rls.limits.exceptions.LimitExceededException;
 import io.apiman.rls.limits.exceptions.LimitNotFoundException;
@@ -36,6 +39,9 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 
 import java.lang.reflect.InvocationTargetException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -89,6 +95,8 @@ public class RlsRestVerticle extends AbstractVerticle {
         System.out.println(routingContext.request().absoluteURI());
         
         RlsInfoBean info = new RlsInfoBean();
+        info.setLinks(createInfoLinks(routingContext.request()));
+        
         final HttpServerResponse response = routingContext.response();
         sendBeanAsResponse(info, response);
     }
@@ -104,6 +112,7 @@ public class RlsRestVerticle extends AbstractVerticle {
         
         final HttpServerResponse response = routingContext.response();
         LimitListBean rval = limits.listLimits(page, pageSize);
+        rval.setLinks(createLimitListLinks(routingContext.request(), page, pageSize));
         sendBeanAsResponse(rval, response);
     }
 
@@ -115,12 +124,16 @@ public class RlsRestVerticle extends AbstractVerticle {
      * @param routingContext
      */
     private void createOrIncrementLimit(RoutingContext routingContext) {
-        final ZonedDateTime now = ZonedDateTime.now();
         final HttpServerResponse response = routingContext.response();
         final String body = routingContext.getBodyAsString();
         final NewLimitBean newLimit = Json.decodeValue(body, NewLimitBean.class);
+        if (newLimit.getTz() == null) {
+            newLimit.setTz(ZoneId.systemDefault());
+        }
+        final ZonedDateTime now = ZonedDateTime.now(newLimit.getTz());
         try {
             LimitBean rval = limits.createLimit(now, newLimit);
+            rval.setLinks(createLimitLinks(routingContext.request(), rval.getId()));
             sendBeanAsResponse(rval, response);
         } catch (LimitExceededException e) {
             LimitExceededErrorBean rval = new LimitExceededErrorBean();
@@ -146,7 +159,7 @@ public class RlsRestVerticle extends AbstractVerticle {
         final HttpServerResponse response = routingContext.response();
         try {
             LimitBean rval = limits.getLimit(limitId);
-            rval.setId(limitId);
+            rval.setLinks(createLimitLinks(routingContext.request(), limitId));
             sendBeanAsResponse(rval, response);
         } catch (LimitNotFoundException e) {
             response.setStatusCode(404);
@@ -174,7 +187,7 @@ public class RlsRestVerticle extends AbstractVerticle {
         final HttpServerResponse response = routingContext.response();
         try {
             LimitBean rval = limits.incrementLimit(now, limitId, incLimit.getIncrementBy());
-            rval.setId(limitId);
+            rval.setLinks(createLimitLinks(routingContext.request(), limitId));
             sendBeanAsResponse(rval, response);
         } catch (LimitExceededException e) {
             LimitExceededErrorBean rval = new LimitExceededErrorBean();
@@ -264,6 +277,74 @@ public class RlsRestVerticle extends AbstractVerticle {
             }
         }
         return map;
+    }
+
+    /**
+     * Populate some links.
+     * @param request
+     */
+    private static RlsInfoLinksBean createInfoLinks(HttpServerRequest request) {
+        RlsInfoLinksBean rval = new RlsInfoLinksBean();
+        try {
+            String absUrl = request.absoluteURI();
+            URI uri = new URI(absUrl);
+            URI createAndList = uri.resolve("limits"); //$NON-NLS-1$
+            rval.setCreate(createAndList.toString());
+            rval.setList(createAndList.toString());
+        } catch (URISyntaxException e) {
+        }
+        return rval;
+    }
+
+    /**
+     * Populate some links.
+     * @param request
+     */
+    @SuppressWarnings("nls")
+    private static LimitListLinksBean createLimitListLinks(HttpServerRequest request, int pageNum, int pageSize) {
+        LimitListLinksBean rval = new LimitListLinksBean();
+        String absUrl = request.absoluteURI();
+        rval.setSelf(absUrl);
+        
+        int qidx = absUrl.indexOf('?');
+        if (qidx > 0) {
+            absUrl = absUrl.substring(0, qidx);
+        }
+        
+        String nextUrl = absUrl + "?page=" + (pageNum+1) + "&pageSize=" + pageSize;
+        rval.setNextPage(nextUrl);
+        
+        if (pageNum > 1) {
+            String prevUrl = absUrl + "?page=" + (pageNum-1) + "&pageSize=" + pageSize;
+            rval.setPrevPage(prevUrl);
+        }
+        return rval;
+    }
+
+    /**
+     * Populate some links.
+     * @param request
+     * @param limitId 
+     */
+    private static LimitLinksBean createLimitLinks(HttpServerRequest request, String limitId) {
+        LimitLinksBean rval = new LimitLinksBean();
+        String absUrl = request.absoluteURI();
+        if (absUrl.contains(limitId)) {
+            rval.setDelete(absUrl);
+            rval.setSelf(absUrl);
+            rval.setIncrement(absUrl);
+        } else {
+            try {
+                URI uri = new URI(absUrl);
+                URI limitUri = uri.resolve(limitId);
+                String limitUriStr = limitUri.toString();
+                rval.setDelete(limitUriStr);
+                rval.setSelf(limitUriStr);
+                rval.setIncrement(limitUriStr);
+            } catch (URISyntaxException e) {
+            }
+        }
+        return rval;
     }
 
 }

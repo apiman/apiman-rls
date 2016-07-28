@@ -75,6 +75,8 @@ public class RlsRestVerticleVertxTest {
                     RlsInfoBean bean = beanFromBody(body.toString(), RlsInfoBean.class);
                     context.assertEquals("apiman-rls-api", bean.getName());
                     context.assertEquals("A REST API to the apiman Rate Limiting [Micro-]Service.  This API provides a way for external clients to quickly and accurately query and increment named rate limits.", bean.getDescription());
+                    context.assertEquals("http://localhost:8080/limits", bean.getLinks().getCreate());
+                    context.assertEquals("http://localhost:8080/limits", bean.getLinks().getList());
                 } catch (Exception e) {
                     context.fail(e);
                 }
@@ -93,6 +95,9 @@ public class RlsRestVerticleVertxTest {
                 try {
                     LimitBean bean = beanFromBody(body.toString(), LimitBean.class);
                     context.assertEquals(limitId, bean.getId());
+                    context.assertEquals("http://localhost:8080/limits/" + limitId, bean.getLinks().getSelf());
+                    context.assertEquals("http://localhost:8080/limits/" + limitId, bean.getLinks().getDelete());
+                    context.assertEquals("http://localhost:8080/limits/" + limitId, bean.getLinks().getIncrement());
                 } catch (Exception e) {
                     context.fail(e);
                 }

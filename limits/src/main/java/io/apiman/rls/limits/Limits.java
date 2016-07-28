@@ -25,7 +25,6 @@ import io.apiman.rls.limits.exceptions.LimitExceededException;
 import io.apiman.rls.limits.exceptions.LimitNotFoundException;
 import io.apiman.rls.limits.exceptions.LimitPeriodConflictException;
 
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Iterator;
@@ -77,10 +76,6 @@ public class Limits {
      */
     public LimitBean createLimit(ZonedDateTime when, NewLimitBean newLimit)
             throws LimitExceededException, LimitPeriodConflictException {
-        if (newLimit.getTz() == null) {
-            newLimit.setTz(ZoneId.systemDefault());
-        }
-        
         StoredLimit storedLimit = new StoredLimit();
         LimitBean limit = new LimitBean();
         limit.setId(newLimit.getId());
