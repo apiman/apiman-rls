@@ -91,7 +91,7 @@ public class Limits {
         StoredLimit prevStoredLimit = limits.putIfAbsent(newLimit.getId(), storedLimit);
         if (prevStoredLimit != null) {
             storedLimit = prevStoredLimit;
-            limit = storedLimit.getDetails();
+            limit = storedLimit.getDetails().clone();
         }
         
         // Check for period mismatch
@@ -139,7 +139,7 @@ public class Limits {
         int idx = 0;
         while (iterator.hasNext() && idx < endItem) {
             if (idx >= startItem) {
-                list.getLimits().add(iterator.next().getDetails());
+                list.getLimits().add(iterator.next().getDetails().clone());
             }
             idx++;
         }

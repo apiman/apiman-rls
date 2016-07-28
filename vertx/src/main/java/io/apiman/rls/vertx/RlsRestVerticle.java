@@ -113,6 +113,9 @@ public class RlsRestVerticle extends AbstractVerticle {
         final HttpServerResponse response = routingContext.response();
         LimitListBean rval = limits.listLimits(page, pageSize);
         rval.setLinks(createLimitListLinks(routingContext.request(), page, pageSize));
+        for (LimitBean limitBean : rval.getLimits()) {
+            limitBean.setLinks(createLimitLinks(routingContext.request(), limitBean.getId()));
+        }
         sendBeanAsResponse(rval, response);
     }
 
@@ -287,6 +290,9 @@ public class RlsRestVerticle extends AbstractVerticle {
         RlsInfoLinksBean rval = new RlsInfoLinksBean();
         try {
             String absUrl = request.absoluteURI();
+            if (!absUrl.endsWith("/")) { //$NON-NLS-1$
+                absUrl = absUrl + "/"; //$NON-NLS-1$
+            }
             URI uri = new URI(absUrl);
             URI createAndList = uri.resolve("limits"); //$NON-NLS-1$
             rval.setCreate(createAndList.toString());
@@ -304,6 +310,9 @@ public class RlsRestVerticle extends AbstractVerticle {
     private static LimitListLinksBean createLimitListLinks(HttpServerRequest request, int pageNum, int pageSize) {
         LimitListLinksBean rval = new LimitListLinksBean();
         String absUrl = request.absoluteURI();
+        if (!absUrl.endsWith("/")) { //$NON-NLS-1$
+            absUrl = absUrl + "/"; //$NON-NLS-1$
+        }
         rval.setSelf(absUrl);
         
         int qidx = absUrl.indexOf('?');
@@ -329,6 +338,9 @@ public class RlsRestVerticle extends AbstractVerticle {
     private static LimitLinksBean createLimitLinks(HttpServerRequest request, String limitId) {
         LimitLinksBean rval = new LimitLinksBean();
         String absUrl = request.absoluteURI();
+        if (!absUrl.endsWith("/")) { //$NON-NLS-1$
+            absUrl = absUrl + "/"; //$NON-NLS-1$
+        }
         if (absUrl.contains(limitId)) {
             rval.setDelete(absUrl);
             rval.setSelf(absUrl);
