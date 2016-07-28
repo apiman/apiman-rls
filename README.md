@@ -22,7 +22,7 @@ java -jar apiman-rls-vertx-${version}-fat.jar
 This will start up the server on port 8080 of localhost.  Point your browser or REST
 client at the resulting endpoint:
 
-http://localhost:8080/
+[http://localhost:8080/](http://localhost:8080/)
 
 You should see a response payload with some basic information, for example:
 
@@ -38,5 +38,5 @@ You should see a response payload with some basic information, for example:
 Now that the server is running, you can start making REST calls to the server.  Details
 of the REST API can be found here:
 
-http://docs.ratelimiterapi.apiary.io/
+[http://docs.ratelimiterapi.apiary.io/](http://docs.ratelimiterapi.apiary.io/)
 
