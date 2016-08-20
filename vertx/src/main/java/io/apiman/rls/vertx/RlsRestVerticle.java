@@ -34,6 +34,8 @@ import io.vertx.core.Future;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -55,13 +57,14 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * @author eric.wittmann@gmail.com
  */
 public class RlsRestVerticle extends AbstractVerticle {
-    
+
     private Limits limits = Limits.getInstance();
+    private Logger log = LoggerFactory.getLogger(RlsRestVerticle.class);
 
     @SuppressWarnings("nls")
     @Override
     public void start(Future<Void> fut) {
-        System.out.println("Starting RLS REST Verticle");
+        log.info("Starting RLS REST Verticle");
         Router router = Router.router(vertx);
 
         router.route().handler(BodyHandler.create());
@@ -83,7 +86,7 @@ public class RlsRestVerticle extends AbstractVerticle {
         router.delete("/limits/:limitId").handler(this::deleteLimit);
 
         vertx.createHttpServer().requestHandler(router::accept).listen(8080);
-        System.out.println("RLS REST Verticle started");
+        log.info("RLS REST Verticle started");
         fut.complete();
     }
 
@@ -92,24 +95,24 @@ public class RlsRestVerticle extends AbstractVerticle {
      * @param routingContext
      */
     private void handleRoot(RoutingContext routingContext) {
-        System.out.println(routingContext.request().absoluteURI());
-        
+        log.debug(routingContext.request().absoluteURI());
+
         RlsInfoBean info = new RlsInfoBean();
         info.setLinks(createInfoLinks(routingContext.request()));
-        
+
         final HttpServerResponse response = routingContext.response();
         sendBeanAsResponse(info, response);
     }
 
     /**
      * Implements the 'list limits' REST endpoint.
-     * 
+     *
      * @param routingContext
      */
     private void handleListLimits(RoutingContext routingContext) {
         int page = getQueryParam(routingContext.request(), "page", Integer.class, 1); //$NON-NLS-1$
         int pageSize = getQueryParam(routingContext.request(), "pageSize", Integer.class, 20); //$NON-NLS-1$
-        
+
         final HttpServerResponse response = routingContext.response();
         LimitListBean rval = limits.listLimits(page, pageSize);
         rval.setLinks(createLimitListLinks(routingContext.request(), page, pageSize));
@@ -121,9 +124,9 @@ public class RlsRestVerticle extends AbstractVerticle {
 
     /**
      * Implements the 'create/increment limit' REST endpoint.  This endpoint will
-     * either create a new limit, or, if the limit already exists, will increment 
+     * either create a new limit, or, if the limit already exists, will increment
      * it.
-     * 
+     *
      * @param routingContext
      */
     private void createOrIncrementLimit(RoutingContext routingContext) {
@@ -152,12 +155,12 @@ public class RlsRestVerticle extends AbstractVerticle {
 
     /**
      * Implements the 'get limit' REST endpoint.  Simple returns a limit by id.
-     * 
+     *
      * @param routingContext
      */
     private void handleGetLimit(RoutingContext routingContext) {
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        System.out.println("Getting limit with id: " + limitId); //$NON-NLS-1$
+        log.debug("Getting limit with id: " + limitId); //$NON-NLS-1$
 
         final HttpServerResponse response = routingContext.response();
         try {
@@ -176,16 +179,16 @@ public class RlsRestVerticle extends AbstractVerticle {
      * returns the latest information (reset time, remaining limit, etc).  If the
      * limit has been exceeded, then a 409 is returned.  If the limit does not
      * already exist, a 404 is returned.
-     * 
+     *
      * @param routingContext
      */
     private void incrementLimit(RoutingContext routingContext) {
         ZonedDateTime now = ZonedDateTime.now();
 
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        System.out.println("Incrementing limit with id: " + limitId); //$NON-NLS-1$
+        log.debug("Incrementing limit with id: " + limitId); //$NON-NLS-1$
         final LimitIncrementBean incLimit = Json.decodeValue(routingContext.getBodyAsString(), LimitIncrementBean.class);
-        System.out.println("Incrementing by " + incLimit.getIncrementBy()); //$NON-NLS-1$
+        log.debug("Incrementing by " + incLimit.getIncrementBy()); //$NON-NLS-1$
 
         final HttpServerResponse response = routingContext.response();
         try {
@@ -207,13 +210,13 @@ public class RlsRestVerticle extends AbstractVerticle {
     /**
      * Implements the 'deletes a limit' REST endpoint.  This removes a limit from
      * the list of limits managed by the service.
-     * 
+     *
      * @param routingContext
      */
     private void deleteLimit(RoutingContext routingContext) {
         ZonedDateTime now = ZonedDateTime.now();
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        System.out.println("Deleting limit with id: " + limitId); //$NON-NLS-1$
+        log.debug("Deleting limit with id: " + limitId); //$NON-NLS-1$
 
         final HttpServerResponse response = routingContext.response();
         try {
@@ -251,7 +254,7 @@ public class RlsRestVerticle extends AbstractVerticle {
             return defaultValue;
         }
         try {
-            return (T) type.getConstructor(String.class).newInstance(paramValue);
+            return type.getConstructor(String.class).newInstance(paramValue);
         } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                 | InvocationTargetException | NoSuchMethodException | SecurityException e) {
             return defaultValue;
@@ -314,15 +317,15 @@ public class RlsRestVerticle extends AbstractVerticle {
             absUrl = absUrl + "/"; //$NON-NLS-1$
         }
         rval.setSelf(absUrl);
-        
+
         int qidx = absUrl.indexOf('?');
         if (qidx > 0) {
             absUrl = absUrl.substring(0, qidx);
         }
-        
+
         String nextUrl = absUrl + "?page=" + (pageNum+1) + "&pageSize=" + pageSize;
         rval.setNextPage(nextUrl);
-        
+
         if (pageNum > 1) {
             String prevUrl = absUrl + "?page=" + (pageNum-1) + "&pageSize=" + pageSize;
             rval.setPrevPage(prevUrl);
@@ -333,7 +336,7 @@ public class RlsRestVerticle extends AbstractVerticle {
     /**
      * Populate some links.
      * @param request
-     * @param limitId 
+     * @param limitId
      */
     private static LimitLinksBean createLimitLinks(HttpServerRequest request, String limitId) {
         LimitLinksBean rval = new LimitLinksBean();
