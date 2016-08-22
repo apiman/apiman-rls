@@ -27,7 +27,7 @@ import io.apiman.rls.beans.rest.LimitBean;
 public class StoredLimit {
 
     private LimitBean details;
-    private transient final Object mutex = new Object();
+//    private transient final Object mutex = new Object();
 
     /**
      * Constructor.
@@ -49,11 +49,11 @@ public class StoredLimit {
         this.details = details;
     }
 
-    /**
-     * @return the mutex
-     */
-    public Object getMutex() {
-        return mutex;
-    }
+//    /**
+//     * @return the mutex
+//     */
+//    public Object getMutex() {
+//        return mutex;
+//    }
 
 }

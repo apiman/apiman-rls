@@ -27,8 +27,8 @@ import io.apiman.rls.limits.exceptions.LimitPeriodConflictException;
 
 import java.time.ZonedDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages the full list of limits, allowing them to be created, deleted, and incremented.  This
@@ -43,7 +43,7 @@ public class Limits {
         return sInstance;
     }
     
-    private ConcurrentHashMap<String, StoredLimit> limits = new ConcurrentHashMap<>(10000);
+    private HashMap<String, StoredLimit> limits = new HashMap<>(10000);
 
     /**
      * Constructor.
@@ -186,7 +186,7 @@ public class Limits {
      * @throws LimitExceededException
      */
     protected final static LimitBean doIncrementLimit(ZonedDateTime when, StoredLimit storedLimit, long value) throws LimitExceededException {
-        synchronized (storedLimit.getMutex()) {
+//        synchronized (storedLimit.getMutex()) {
             LimitBean limit = storedLimit.getDetails();
             
             // Do we need to reset the rate limit?
@@ -212,7 +212,7 @@ public class Limits {
             // return a copy of the mutated limit, allowing the caller to update the links
             // and ensure that another thread won't modify it before it can do something with it
             return limit.clone();
-        }
+//        }
     }
 
     /**
