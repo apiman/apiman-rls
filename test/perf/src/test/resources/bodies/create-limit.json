@@ -1,0 +1,6 @@
+{
+  "id": "${LimitId}",
+  "value": 1,
+  "maxValue": ${MaxLimitValue},
+  "period": "hour"
+}
