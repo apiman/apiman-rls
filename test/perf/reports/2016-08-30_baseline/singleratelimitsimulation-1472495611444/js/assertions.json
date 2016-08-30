@@ -1,0 +1,10 @@
+{
+  "simulation": "SingleRateLimitSimulation",
+  "simulationId": "singleratelimitsimulation",
+  "start": 1472495611444,
+  "description": "null",
+  "scenarios": ["SingleRateLimitScenario"],
+  "assertions": [
+
+  ]
+}

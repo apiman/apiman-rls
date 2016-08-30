@@ -1,0 +1,10 @@
+{
+  "simulation": "SmokeTestSimulation",
+  "simulationId": "smoketestsimulation",
+  "start": 1472494221465,
+  "description": "null",
+  "scenarios": ["SmokeTestScenario"],
+  "assertions": [
+
+  ]
+}
