@@ -56,12 +56,18 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * A verticle that implements the RLS REST API.
  * @author eric.wittmann@gmail.com
  */
+@SuppressWarnings("nls")
 public class RlsRestVerticle extends AbstractVerticle {
 
     private Limits limits = Limits.getInstance();
     private Logger log = LoggerFactory.getLogger(RlsRestVerticle.class);
+    
+    /**
+     * Constructor.
+     */
+    public RlsRestVerticle() {
+    }
 
-    @SuppressWarnings("nls")
     @Override
     public void start(Future<Void> fut) {
         log.info("Starting RLS REST Verticle");
@@ -309,7 +315,6 @@ public class RlsRestVerticle extends AbstractVerticle {
      * Populate some links.
      * @param request
      */
-    @SuppressWarnings("nls")
     private static LimitListLinksBean createLimitListLinks(HttpServerRequest request, int pageNum, int pageSize) {
         LimitListLinksBean rval = new LimitListLinksBean();
         String absUrl = request.absoluteURI();
