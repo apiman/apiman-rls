@@ -60,6 +60,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class RlsRestVerticle extends AbstractVerticle {
 
     private Limits limits = Limits.getInstance();
+    private TaskDispatcher dispatcher = TaskDispatcher.getInstance();
     private Logger log = LoggerFactory.getLogger(RlsRestVerticle.class);
     
     /**
@@ -71,6 +72,7 @@ public class RlsRestVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> fut) {
         log.info("Starting RLS REST Verticle");
+        dispatcher.start(vertx);
         Router router = Router.router(vertx);
 
         router.route().handler(BodyHandler.create());
@@ -84,12 +86,12 @@ public class RlsRestVerticle extends AbstractVerticle {
 
         // Path: /limits
         router.get("/limits").handler(this::handleListLimits);
-        router.post("/limits").handler(this::createOrIncrementLimit);
+        router.post("/limits").handler(this::handleCreateOrIncrementLimit);
 
         // Path: /limits/:limitId
         router.get("/limits/:limitId").handler(this::handleGetLimit);
-        router.put("/limits/:limitId").handler(this::incrementLimit);
-        router.delete("/limits/:limitId").handler(this::deleteLimit);
+        router.put("/limits/:limitId").handler(this::handleIncrementLimit);
+        router.delete("/limits/:limitId").handler(this::handleDeleteLimit);
 
         vertx.createHttpServer().requestHandler(router::accept).listen(8080);
         log.info("RLS REST Verticle started");
@@ -135,7 +137,7 @@ public class RlsRestVerticle extends AbstractVerticle {
      *
      * @param routingContext
      */
-    private void createOrIncrementLimit(RoutingContext routingContext) {
+    private void handleCreateOrIncrementLimit(RoutingContext routingContext) {
         final HttpServerResponse response = routingContext.response();
         final String body = routingContext.getBodyAsString();
         final NewLimitBean newLimit = Json.decodeValue(body, NewLimitBean.class);
@@ -143,20 +145,35 @@ public class RlsRestVerticle extends AbstractVerticle {
             newLimit.setTz(ZoneId.systemDefault());
         }
         final ZonedDateTime now = ZonedDateTime.now(newLimit.getTz());
-        try {
+        
+        dispatcher.dispatch(newLimit.getId(), () -> {
             LimitBean rval = limits.createLimit(now, newLimit);
-            rval.setLinks(createLimitLinks(routingContext.request(), rval.getId()));
-            sendBeanAsResponse(rval, response);
-        } catch (LimitExceededException e) {
-            LimitExceededErrorBean rval = new LimitExceededErrorBean();
-            rval.setResetOn(e.getResetOn());
-            response.setStatusCode(429);
-            sendBeanAsResponse(rval, response);
-        } catch (LimitPeriodConflictException e) {
-            response.setStatusCode(409);
-            response.setStatusMessage("Limit period conflict detected."); //$NON-NLS-1$
-            response.end();
-        }
+            return rval;
+        }, (result) -> {
+            if (result.succeeded()) {
+                LimitBean rval = result.result();
+                rval.setLinks(createLimitLinks(routingContext.request(), rval.getId()));
+                sendBeanAsResponse(rval, response);
+            } else {
+                try {
+                    throw result.cause();
+                } catch (LimitExceededException e) {
+                    LimitExceededErrorBean rval = new LimitExceededErrorBean();
+                    rval.setResetOn(e.getResetOn());
+                    response.setStatusCode(429);
+                    sendBeanAsResponse(rval, response);
+                } catch (LimitPeriodConflictException e) {
+                    response.setStatusCode(409);
+                    response.setStatusMessage("Limit period conflict detected."); //$NON-NLS-1$
+                    response.end();
+                } catch (Throwable t) {
+                    log.error(t.getMessage(), t);
+                    response.setStatusCode(500);
+                    response.setStatusMessage("Unexpected server error.");
+                    response.end();
+                }
+            }
+        });
     }
 
     /**
@@ -166,18 +183,25 @@ public class RlsRestVerticle extends AbstractVerticle {
      */
     private void handleGetLimit(RoutingContext routingContext) {
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        log.debug("Getting limit with id: " + limitId); //$NON-NLS-1$
-
-        final HttpServerResponse response = routingContext.response();
-        try {
+        log.debug("Getting limit with id: {0} :: {1}", limitId, Thread.currentThread()); //$NON-NLS-1$
+        
+        dispatcher.dispatch(limitId, () -> {
             LimitBean rval = limits.getLimit(limitId);
-            rval.setLinks(createLimitLinks(routingContext.request(), limitId));
-            sendBeanAsResponse(rval, response);
-        } catch (LimitNotFoundException e) {
-            response.setStatusCode(404);
-            response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
-            response.end();
-        }
+            return rval;
+        }, (result) -> {
+            final HttpServerResponse response = routingContext.response();
+            if (result.succeeded()) {
+                LimitBean rval = result.result();
+                rval.setLinks(createLimitLinks(routingContext.request(), limitId));
+                sendBeanAsResponse(rval, response);
+            } else {
+                // Currently, "not found" is the only possible failure
+                response.setStatusCode(404);
+                response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
+                response.end();
+            }
+        });
+
     }
 
     /**
@@ -188,29 +212,44 @@ public class RlsRestVerticle extends AbstractVerticle {
      *
      * @param routingContext
      */
-    private void incrementLimit(RoutingContext routingContext) {
+    private void handleIncrementLimit(RoutingContext routingContext) {
         ZonedDateTime now = ZonedDateTime.now();
 
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        log.debug("Incrementing limit with id: " + limitId); //$NON-NLS-1$
+        log.debug("Incrementing limit with id: {0}", limitId); //$NON-NLS-1$
         final LimitIncrementBean incLimit = Json.decodeValue(routingContext.getBodyAsString(), LimitIncrementBean.class);
-        log.debug("Incrementing by " + incLimit.getIncrementBy()); //$NON-NLS-1$
+        log.debug("Incrementing by {0}", incLimit.getIncrementBy()); //$NON-NLS-1$
 
         final HttpServerResponse response = routingContext.response();
-        try {
+        
+        dispatcher.dispatch(limitId, () -> {
             LimitBean rval = limits.incrementLimit(now, limitId, incLimit.getIncrementBy());
-            rval.setLinks(createLimitLinks(routingContext.request(), limitId));
-            sendBeanAsResponse(rval, response);
-        } catch (LimitExceededException e) {
-            LimitExceededErrorBean rval = new LimitExceededErrorBean();
-            rval.setResetOn(e.getResetOn());
-            response.setStatusCode(429);
-            sendBeanAsResponse(rval, response);
-        } catch (LimitNotFoundException e) {
-            response.setStatusCode(404);
-            response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
-            response.end();
-        }
+            return rval;
+        }, (result) -> {
+            if (result.succeeded()) {
+                LimitBean rval = result.result();
+                rval.setLinks(createLimitLinks(routingContext.request(), limitId));
+                sendBeanAsResponse(rval, response);
+            } else {
+                try {
+                    throw result.cause();
+                } catch (LimitExceededException e) {
+                    LimitExceededErrorBean rval = new LimitExceededErrorBean();
+                    rval.setResetOn(e.getResetOn());
+                    response.setStatusCode(429);
+                    sendBeanAsResponse(rval, response);
+                } catch (LimitNotFoundException e) {
+                    response.setStatusCode(404);
+                    response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
+                    response.end();
+                } catch (Throwable t) {
+                    log.error(t.getMessage(), t);
+                    response.setStatusCode(500);
+                    response.setStatusMessage("Unexpected server error.");
+                    response.end();
+                }
+            }
+        });
     }
 
     /**
@@ -219,21 +258,35 @@ public class RlsRestVerticle extends AbstractVerticle {
      *
      * @param routingContext
      */
-    private void deleteLimit(RoutingContext routingContext) {
+    private void handleDeleteLimit(RoutingContext routingContext) {
         ZonedDateTime now = ZonedDateTime.now();
         String limitId = routingContext.request().getParam("limitId"); //$NON-NLS-1$
-        log.debug("Deleting limit with id: " + limitId); //$NON-NLS-1$
+        log.debug("Deleting limit with id: {0}", limitId); //$NON-NLS-1$
 
         final HttpServerResponse response = routingContext.response();
-        try {
+        
+        dispatcher.dispatch(limitId, () -> {
             limits.deleteLimit(now, limitId);
-            response.setStatusCode(204);
-            response.end();
-        } catch (LimitNotFoundException e) {
-            response.setStatusCode(404);
-            response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
-            response.end();
-        }
+            return true;
+        }, (result) -> {
+            if (result.succeeded()) {
+                response.setStatusCode(204);
+                response.end();
+            } else {
+                try {
+                    throw result.cause();
+                } catch (LimitNotFoundException e) {
+                    response.setStatusCode(404);
+                    response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
+                    response.end();
+                } catch (Throwable t) {
+                    log.error(t.getMessage(), t);
+                    response.setStatusCode(500);
+                    response.setStatusMessage("Unexpected server error.");
+                    response.end();
+                }
+            }
+        });
     }
 
     /**
