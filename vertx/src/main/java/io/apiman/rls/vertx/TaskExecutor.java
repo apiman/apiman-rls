@@ -44,16 +44,16 @@ public class TaskExecutor {
      */
     public TaskExecutor(int executorId, Vertx vertx) {
         this.vertx = vertx;
-        log.debug("Creating task executor: {0} :: {1}", executorId, Thread.currentThread()); //$NON-NLS-1$
+        log.debug("{0} :: Creating task executor {1}", Thread.currentThread(), executorId); //$NON-NLS-1$
         
         this.executorId = executorId;
         thread = new Thread(() -> {
             while (Boolean.TRUE) {
-                TaskAndStuff taskAndHandler = null;
+                TaskAndStuff taskAndStuff = null;
                 try {
-                    taskAndHandler = queue.take();
-                    log.debug("Task received by executor, processing:: {0}", Thread.currentThread()); //$NON-NLS-1$
-                    final Object rval = taskAndHandler.task.execute();
+                    taskAndStuff = queue.take();
+                    log.debug("{0} :: Task received by executor, processing.", Thread.currentThread()); //$NON-NLS-1$
+                    final Object rval = taskAndStuff.task.execute();
                     AsyncResult result = new AsyncResult() {
                         @Override
                         public Object result() {
@@ -76,10 +76,15 @@ public class TaskExecutor {
                         }
                     };
 
-                    final AsyncResultHandler handler = taskAndHandler.handler;
-                    taskAndHandler.context.runOnContext((v1) -> {
+                    log.debug("{0} :: Task executed.  Result: {1}", Thread.currentThread(), rval); //$NON-NLS-1$
+
+                    final AsyncResultHandler handler = taskAndStuff.handler;
+                    taskAndStuff.context.runOnContext((v1) -> {
+                        log.debug("{0} :: Calling the async result handler: {1}", Thread.currentThread(), handler); //$NON-NLS-1$
                         handler.handle(result);
                     });
+
+                    log.debug("{0} :: Task handler scheduled to be run on context: {1}", Thread.currentThread(), taskAndStuff.context); //$NON-NLS-1$
                 } catch (InterruptedException e) {
                     // skip - keep trying!
                 } catch (Exception e) {
@@ -104,8 +109,8 @@ public class TaskExecutor {
                             return true;
                         }
                     };
-                    final AsyncResultHandler handler = taskAndHandler.handler;
-                    taskAndHandler.context.runOnContext((v1) -> {
+                    final AsyncResultHandler handler = taskAndStuff.handler;
+                    taskAndStuff.context.runOnContext((v1) -> {
                         handler.handle(result);
                     });
                 }

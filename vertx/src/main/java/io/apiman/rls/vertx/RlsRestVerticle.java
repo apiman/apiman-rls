@@ -146,10 +146,14 @@ public class RlsRestVerticle extends AbstractVerticle {
         }
         final ZonedDateTime now = ZonedDateTime.now(newLimit.getTz());
         
+        log.debug("{0} :: Creating limit with id: {1}", Thread.currentThread(), newLimit.getId());
+        
         dispatcher.dispatch(newLimit.getId(), () -> {
+            log.debug("{0} :: Dispatched work :: Creating limit: {1}", Thread.currentThread(), newLimit.getId());
             LimitBean rval = limits.createLimit(now, newLimit);
             return rval;
         }, (result) -> {
+            log.debug("{0} :: Task handler :: Limit created: {1}", Thread.currentThread(), newLimit.getId());
             if (result.succeeded()) {
                 LimitBean rval = result.result();
                 rval.setLinks(createLimitLinks(routingContext.request(), rval.getId()));
