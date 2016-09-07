@@ -207,7 +207,7 @@ class SlowRampSimulation extends ApimanRlsSimulation {
     }
 
   setUp(
-    scn.inject(rampUsers(10000) over (20 minutes))
+    scn.inject(rampUsers(20000) over (20 minutes))
   ).protocols(httpConf)
 }
 

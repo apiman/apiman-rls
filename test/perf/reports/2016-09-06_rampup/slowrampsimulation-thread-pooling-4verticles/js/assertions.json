@@ -1,0 +1,10 @@
+{
+  "simulation": "SlowRampSimulation",
+  "simulationId": "slowrampsimulation",
+  "start": 1473202891401,
+  "description": "null",
+  "scenarios": ["SlowRampScenario"],
+  "assertions": [
+
+  ]
+}
