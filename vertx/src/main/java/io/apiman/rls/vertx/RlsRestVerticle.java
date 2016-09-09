@@ -331,7 +331,7 @@ public class RlsRestVerticle extends AbstractVerticle {
      */
     protected static Map<String, String> parseQuery(String query) {
         if (query == null || query.trim().isEmpty()) {
-            return Collections.EMPTY_MAP;
+            return Collections.emptyMap();
         }
         Map<String, String> map = new HashMap<>();
         String [] split = query.split("&"); //$NON-NLS-1$
