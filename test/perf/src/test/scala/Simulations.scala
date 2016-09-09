@@ -156,3 +156,58 @@ class KnockOverSimulation extends ApimanRlsSimulation {
   ).protocols(httpConf)
 }
 
+
+
+
+class SlowRampSimulation extends ApimanRlsSimulation {
+  
+  val limitIdFeeder = Array(
+    Map("LimitId" -> "Limit-0"),
+    Map("LimitId" -> "Limit-1"),
+    Map("LimitId" -> "Limit-2"),
+    Map("LimitId" -> "Limit-3"),
+    Map("LimitId" -> "Limit-4"),
+    Map("LimitId" -> "Limit-5"),
+    Map("LimitId" -> "Limit-6"),
+    Map("LimitId" -> "Limit-7"),
+    Map("LimitId" -> "Limit-8"),
+    Map("LimitId" -> "Limit-9"),
+    Map("LimitId" -> "Limit-10"),
+    Map("LimitId" -> "Limit-11"),
+    Map("LimitId" -> "Limit-12"),
+    Map("LimitId" -> "Limit-13"),
+    Map("LimitId" -> "Limit-14"),
+    Map("LimitId" -> "Limit-15"),
+    Map("LimitId" -> "Limit-16"),
+    Map("LimitId" -> "Limit-17"),
+    Map("LimitId" -> "Limit-18"),
+    Map("LimitId" -> "Limit-19"),
+    Map("LimitId" -> "Limit-20"),
+    Map("LimitId" -> "Limit-21"),
+    Map("LimitId" -> "Limit-22"),
+    Map("LimitId" -> "Limit-23"),
+    Map("LimitId" -> "Limit-24") ).random
+  
+  val httpConf = http
+    .baseURL(rlsHost)
+    .acceptHeader("application/json,application/xml;q=0.9,*/*;q=0.8")
+    .doNotTrackHeader("1")
+    .acceptLanguageHeader("en-US,en;q=0.5")
+    .acceptEncodingHeader("gzip, deflate")
+    .userAgentHeader("Mozilla/5.0 (Windows NT 5.1; rv:31.0) Gecko/20100101 Firefox/31.0")
+
+  val scn = scenario("SlowRampScenario")
+    .feed(limitIdFeeder)
+    .exec(_.set("MaxLimitValue", 50000000))
+    .exec(http("Root").get("/"))
+    .exec(http("CreateLimit").post("/limits/").header("Content-Type", "application/json").body(io.gatling.core.body.ElFileBody("create-limit.json")).asJSON)
+    .pause(1)
+    .repeat(3000, "n") {
+      exec(http("IncrementLimit").put("/limits/${LimitId}").header("Content-Type", "application/json").body(io.gatling.core.body.ElFileBody("increment-limit.json")).asJSON).pause(200 milliseconds)
+    }
+
+  setUp(
+    scn.inject(rampUsers(20000) over (20 minutes))
+  ).protocols(httpConf)
+}
+
