@@ -159,18 +159,17 @@ public class RlsRestVerticle extends AbstractVerticle {
                 rval.setLinks(createLimitLinks(routingContext.request(), rval.getId()));
                 sendBeanAsResponse(rval, response);
             } else {
-                try {
-                    throw result.cause();
-                } catch (LimitExceededException e) {
+                Throwable t = result.cause();
+                if (t instanceof LimitExceededException) {
                     LimitExceededErrorBean rval = new LimitExceededErrorBean();
-                    rval.setResetOn(e.getResetOn());
+                    rval.setResetOn(((LimitExceededException) t).getResetOn());
                     response.setStatusCode(429);
                     sendBeanAsResponse(rval, response);
-                } catch (LimitPeriodConflictException e) {
+                } else if (t instanceof LimitPeriodConflictException) {
                     response.setStatusCode(409);
                     response.setStatusMessage("Limit period conflict detected."); //$NON-NLS-1$
                     response.end();
-                } catch (Throwable t) {
+                } else {
                     log.error(t.getMessage(), t);
                     response.setStatusCode(500);
                     response.setStatusMessage("Unexpected server error.");
@@ -235,18 +234,17 @@ public class RlsRestVerticle extends AbstractVerticle {
                 rval.setLinks(createLimitLinks(routingContext.request(), limitId));
                 sendBeanAsResponse(rval, response);
             } else {
-                try {
-                    throw result.cause();
-                } catch (LimitExceededException e) {
+                Throwable t = result.cause();
+                if (t instanceof LimitExceededException) {
                     LimitExceededErrorBean rval = new LimitExceededErrorBean();
-                    rval.setResetOn(e.getResetOn());
+                    rval.setResetOn(((LimitExceededException)t).getResetOn());
                     response.setStatusCode(429);
                     sendBeanAsResponse(rval, response);
-                } catch (LimitNotFoundException e) {
+                } else if (t instanceof LimitNotFoundException) {
                     response.setStatusCode(404);
                     response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
                     response.end();
-                } catch (Throwable t) {
+                } else {
                     log.error(t.getMessage(), t);
                     response.setStatusCode(500);
                     response.setStatusMessage("Unexpected server error.");
@@ -277,13 +275,12 @@ public class RlsRestVerticle extends AbstractVerticle {
                 response.setStatusCode(204);
                 response.end();
             } else {
-                try {
-                    throw result.cause();
-                } catch (LimitNotFoundException e) {
+                Throwable t = result.cause();
+                if (t instanceof LimitNotFoundException) {
                     response.setStatusCode(404);
                     response.setStatusMessage("Limit '" + limitId + "' not found."); //$NON-NLS-1$ //$NON-NLS-2$
                     response.end();
-                } catch (Throwable t) {
+                } else {
                     log.error(t.getMessage(), t);
                     response.setStatusCode(500);
                     response.setStatusMessage("Unexpected server error.");
