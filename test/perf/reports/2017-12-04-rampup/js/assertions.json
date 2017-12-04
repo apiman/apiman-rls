@@ -1,0 +1,10 @@
+{
+  "simulation": "SeveralRateLimitsSimulation",
+  "simulationId": "severalratelimitssimulation",
+  "start": 1512407324416,
+  "description": "null",
+  "scenarios": ["SeveralRateLimitsScenario"],
+  "assertions": [
+
+  ]
+}
